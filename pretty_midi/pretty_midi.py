@@ -13,7 +13,7 @@ import functools
 import six
 
 from .instrument import Instrument
-from .containers import (KeySignature, TimeSignature, Lyric, Note,
+from .containers import (KeySignature, TimeSignature, Lyric, Marker, Note,
                          PitchBend, ControlChange)
 from .utilities import (key_name_to_key_number, qpm_to_bpm)
 
@@ -45,6 +45,8 @@ class PrettyMIDI(object):
         List of :class:`pretty_midi.TimeSignature` objects.
     lyrics : list
         List of :class:`pretty_midi.Lyric` objects.
+    markers : list
+        List of :class:`pretty_midi.Marker` objects.
     """
 
     def __init__(self, midi_file=None, resolution=220, initial_tempo=120.):
@@ -117,6 +119,8 @@ class PrettyMIDI(object):
             self.time_signature_changes = []
             # Empty lyrics list
             self.lyrics = []
+            # Empty markers list
+            self.markers = []
 
     def _load_tempo_changes(self, midi_data):
         """Populates ``self._tick_scales`` with tuples of
@@ -156,7 +160,7 @@ class PrettyMIDI(object):
     def _load_metadata(self, midi_data):
         """Populates ``self.time_signature_changes`` with ``TimeSignature``
         objects, ``self.key_signature_changes`` with ``KeySignature`` objects,
-        and ``self.lyrics`` with ``Lyric`` objects.
+         ``self.lyrics`` with ``Lyric`` objects, and ``self.markers`` with ``Marker`` objects.
 
         Parameters
         ----------
@@ -165,10 +169,11 @@ class PrettyMIDI(object):
         """
 
         # Initialize empty lists for storing key signature changes, time
-        # signature changes, and lyrics
+        # signature changes, lyrics, and markers
         self.key_signature_changes = []
         self.time_signature_changes = []
         self.lyrics = []
+        self.markers = []
 
         for event in midi_data.tracks[0]:
             if event.type == 'key_signature':
@@ -185,6 +190,10 @@ class PrettyMIDI(object):
 
             elif event.type == 'lyrics':
                 self.lyrics.append(Lyric(
+                    event.text, self.__tick_to_time[event.time]))
+
+            elif event.type == 'marker':
+                self.markers.append(Marker(
                     event.text, self.__tick_to_time[event.time]))
 
     def _update_tick_to_time(self, max_tick):
@@ -420,7 +429,7 @@ class PrettyMIDI(object):
         """
         # Get end times from all instruments, and times of all meta-events
         meta_events = [self.time_signature_changes, self.key_signature_changes,
-                       self.lyrics]
+                       self.lyrics, self.markers]
         times = ([i.get_end_time() for i in self.instruments] +
                  [e.time for m in meta_events for e in m] +
                  self.get_tempo_changes()[0].tolist())
@@ -1116,6 +1125,8 @@ class PrettyMIDI(object):
         adjust_meta(self.key_signature_changes)
         # Adjust lyrics
         adjust_meta(self.lyrics)
+        # Adjust markers
+        adjust_meta(self.markers)
 
         # Remove all downbeats which appear before the start of original_times
         original_downbeats = original_downbeats[
@@ -1269,7 +1280,8 @@ class PrettyMIDI(object):
                 'note_off': lambda e: ((8 * 256 * 256) + (e.note * 256)),
                 'note_on': lambda e: (
                     (9 * 256 * 256) + (e.note * 256) + e.velocity),
-                'end_of_track': lambda e: (10 * 256 * 256)
+                'end_of_track': lambda e: (10 * 256 * 256),
+                'marker': lambda e: (11 * 256 * 256)
             }
             # If the events have the same tick, and both events have types
             # which appear in the secondary_sort dictionary, use the dictionary
@@ -1321,6 +1333,10 @@ class PrettyMIDI(object):
         for l in self.lyrics:
             timing_track.append(mido.MetaMessage(
                 'lyrics', time=self.time_to_tick(l.time), text=l.text))
+        # Add in all markers events
+        for m in self.markers:
+            timing_track.append(mido.MetaMessage(
+                'marker', time=self.time_to_tick(m.time), text=m.text))
         # Sort the (absolute-tick-timed) events.
         timing_track.sort(key=functools.cmp_to_key(event_compare))
         # Add in an end of track event

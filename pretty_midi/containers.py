@@ -193,3 +193,25 @@ class Lyric(object):
 
     def __str__(self):
         return '"{}" at {:.2f} seconds'.format(self.text, self.time)
+
+
+class Marker(object):
+    """Timestamped marker text.
+
+    Attributes
+    ----------
+    text : str
+        The text of the marker.
+    time : float
+        The time in seconds of the marker.
+    """
+    def __init__(self, text, time):
+        self.text = text
+        self.time = time
+
+    def __repr__(self):
+        return 'Marker(text="{}", time={})'.format(
+            self.text.replace('"', r'\"'), self.time)
+
+    def __str__(self):
+        return '"{}" at {:.2f} seconds'.format(self.text, self.time)

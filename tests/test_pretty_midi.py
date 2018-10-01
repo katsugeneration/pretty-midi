@@ -365,6 +365,8 @@ def test_get_end_time():
     assert np.allclose(pm.get_end_time(), 2.5)
     pm.time_signature_changes.append(pretty_midi.Lyric(text='hey', time=2.7))
     assert np.allclose(pm.get_end_time(), 2.7)
+    pm.markers.append(pretty_midi.Marker(text='A', time=2.9))
+    assert np.allclose(pm.get_end_time(), 2.9)
 
 
 def test_estimate_tempi():
